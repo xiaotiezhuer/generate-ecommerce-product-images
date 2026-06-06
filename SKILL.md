@@ -1,0 +1,174 @@
+---
+name: generate-ecommerce-product-images
+description: Use when a user provides one or more product photos and wants ecommerce product images, marketplace listing visuals, lifestyle shots, detail shots, Chinese meaning-copy posters, selling-point graphics, competitor-style research, or an automated product-photo set.
+---
+
+# Generate Ecommerce Product Images
+
+## Overview
+
+Turn one or more photos of the same real product into a researched, product-faithful ecommerce image set. Default to six `1:1` images and complete the workflow automatically unless the product identity is genuinely ambiguous.
+
+**REQUIRED SUB-SKILL:** Use `imagegen` for every generated or edited raster image. Use the built-in `image_gen` path by default and follow its save-path, reference-image, inspection, and iteration rules.
+
+## Default Deliverables
+
+Generate these six square images unless the user requests a different set:
+
+1. `01-main-square.png` — white or restrained clean-background main image.
+2. `02-atmosphere-square.png` — premium category-appropriate atmosphere image.
+3. `03-detail-square.png` — material or craftsmanship macro detail.
+4. `04-meaning-copy-square.png` — Chinese meaning-copy poster.
+5. `05-usage-square.png` — realistic use and scale scene.
+6. `06-selling-points-square.png` — no more than three evidence-backed selling points.
+
+Only add `3:4`, `4:5`, `16:9`, or other ratios when explicitly requested. Generate each extra ratio as a separately composed image; do not substitute a damaging mechanical crop.
+
+## Question Policy
+
+Proceed without asking when optional brand, audience, price, material, or copy information is missing. Infer a conservative visual direction and avoid unsupported factual claims.
+
+Stop and ask only when:
+
+- Inputs are too unclear to identify essential product structure.
+- Images likely show different SKUs, colorways, or models that would be unsafe to merge.
+- Reference images contradict each other on a key functional feature.
+- The user requests a factual claim that lacks necessary evidence.
+
+## Resource Loading
+
+Read resources only when entering the relevant phase:
+
+- Before classifying inputs or generating anything, read `references/product-fidelity.md`.
+- Before market research, read `references/research-workflow.md`.
+- Before composing prompts, read `references/image-set-prompts.md`.
+- Before accepting, retrying, or delivering an image, read `references/quality-checklist.md`.
+
+## Workflow
+
+### 1. Inspect and Classify Inputs
+
+Treat attached images as visible inputs. For local filesystem images not yet visible in the conversation, inspect them with `view_image` before using built-in ImageGen.
+
+Label every image as one of:
+
+- `main-identity`
+- `alternate-angle`
+- `detail-reference`
+- `packaging-reference`
+- `accessory-reference`
+- `usage-reference`
+
+Identify likely mixed SKUs before proceeding.
+
+### 2. Build the Product Fingerprint
+
+Follow `references/product-fidelity.md`. Record:
+
+- Silhouette and proportions.
+- Component count, location, shape, connection, and orientation.
+- Openings, handles, spouts, buttons, interfaces, lids, or other functional features.
+- Color, material, reflections, texture, logos, inscriptions, and distinctive natural marks.
+- Packaging and real accessories as separate entities.
+- Any uncertainty.
+
+Keep original product photos as the identity truth throughout the task. Never use a structurally failed generated image as an identity reference.
+
+### 3. Research Current Market Visuals
+
+When internet access is available, perform current research; do not rely only on memory. Follow `references/research-workflow.md`.
+
+Research multiple merchants, brands, or recent content examples. Record dates, links, evidence classes, repeated visual patterns, and limitations in `research.md`.
+
+Never translate search prominence or engagement into unsupported sales claims. If research is blocked, continue using conservative category heuristics and explicitly mark `未完成实时市场验证`.
+
+### 4. Create the Visual and Copy Brief
+
+Write `visual-brief.md` with:
+
+- Target audience and price impression.
+- Core style, palette, background materials, light, camera, props, and mood.
+- A distinct sales task for each of the six images.
+- Global product invariants and avoid list.
+
+Create a 4–8 Chinese-character meaning phrase when appropriate. Limit selling points to three. Use only user-supplied facts, directly visible features, or reliable sources. Do not invent material purity, origin, handmade status, heritage, safety, certification, medical benefit, performance, or sales data.
+
+### 5. Create the Delivery Scaffold
+
+Choose the user destination when supplied; otherwise create a descriptive project-local delivery directory. Never overwrite an existing non-empty directory; use a versioned sibling.
+
+Run:
+
+```bash
+python3 <skill-dir>/scripts/create_delivery.py \
+  <delivery-dir> \
+  --product-name "<product name>"
+```
+
+Add repeated `--ratio` arguments only for explicitly requested extra ratios.
+
+### 6. Compose Prompts and Generate
+
+Read `references/image-set-prompts.md`. Write the final prompt for every requested asset into `prompts.md`.
+
+For each asset:
+
+1. Use one dedicated built-in `image_gen` call.
+2. Identify every input image role in the prompt.
+3. Repeat the product fingerprint and the most important invariants.
+4. Default to Fidelity A.
+5. Generate the image, inspect it, and copy the selected final into the delivery directory.
+6. Do not let a failed candidate influence later product identity.
+
+Use the original images for identity and the visual brief for styling. Keep props secondary and do not imply that unprovided props are included with the product.
+
+### 7. Inspect, Retry, and Apply Fallbacks
+
+Read `references/quality-checklist.md`. Check every image immediately for:
+
+- Product identity.
+- Exact text.
+- Ecommerce usability.
+- Factual and platform compliance.
+
+Allow at most two targeted retries per image. Change only the failed element and repeat all invariants.
+
+Use Fidelity B only after A-level targeted retries fail and only within `references/product-fidelity.md`. Mark every B result in the manifest and quality report.
+
+For persistent text failure:
+
+1. Shorten and simplify text once.
+2. Then generate a no-text base with a safe text area.
+3. Record the exact intended copy and failure; never deliver incorrect text as complete.
+
+### 8. Finalize and Validate
+
+Complete:
+
+- `research.md`
+- `visual-brief.md`
+- `prompts.md`
+- `quality-report.md`
+- `manifest.json`
+
+For every image, set manifest `status` to `complete` or `failed`, preserve `fidelity` as `A` or `B`, and add concise notes for retries, text fallback, or unresolved issues.
+
+Run:
+
+```bash
+python3 <skill-dir>/scripts/validate_delivery.py <delivery-dir>
+```
+
+Do not claim full completion unless validation passes. If validation fails because an image could not be made usable, report the exact missing or failed item rather than hiding it.
+
+## Final Response
+
+Report:
+
+- Delivery directory and final image paths.
+- Short market-trend summary and research limitation, if any.
+- The prompts file path.
+- Any Fidelity B images and exact changes.
+- Failed or no-text fallback assets.
+- Validation result.
+- Reminder to manually confirm product structure, color, copy, logos, scale, and all factual claims before listing.
