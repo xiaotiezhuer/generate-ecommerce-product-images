@@ -45,10 +45,12 @@ def run_script(script, *args):
     )
 
 
-def create_delivery(root, *ratios):
+def create_delivery(root, *ratios, specifications_awaiting_input=False):
     args = [root, "--product-name", "测试产品"]
     for ratio in ratios:
         args.extend(["--ratio", ratio])
+    if specifications_awaiting_input:
+        args.append("--specifications-awaiting-input")
     return run_script(CREATE_SCRIPT, *args)
 
 
@@ -82,10 +84,16 @@ class CreateDeliveryTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["schema_version"], 2)
             self.assertEqual(manifest["product_name"], "测试产品")
             self.assertEqual([item["name"] for item in manifest["requested_ratios"]], ["square"])
-            self.assertEqual(len(manifest["assets"]), 6)
+            self.assertEqual(len(manifest["assets"]), 7)
             self.assertEqual(manifest["assets"][0]["filename"], "01-main-square.png")
+            self.assertEqual(
+                manifest["assets"][-1]["filename"],
+                "07-specifications-square.png",
+            )
+            self.assertEqual(manifest["assets"][-1]["type"], "specifications")
             self.assertTrue(all(asset["status"] == "pending" for asset in manifest["assets"]))
             self.assertTrue(all(asset["fidelity"] == "A" for asset in manifest["assets"]))
             for report in REPORTS:
@@ -114,10 +122,34 @@ class CreateDeliveryTests(unittest.TestCase):
                 [item["name"] for item in manifest["requested_ratios"]],
                 ["square", "3x4"],
             )
-            self.assertEqual(len(manifest["assets"]), 12)
+            self.assertEqual(len(manifest["assets"]), 14)
             filenames = {asset["filename"] for asset in manifest["assets"]}
             self.assertIn("01-main-square.png", filenames)
             self.assertIn("01-main-3x4.png", filenames)
+            self.assertIn("07-specifications-square.png", filenames)
+            self.assertIn("07-specifications-3x4.png", filenames)
+
+    def test_marks_specifications_as_awaiting_user_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "delivery"
+
+            result = create_delivery(
+                output,
+                specifications_awaiting_input=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads(
+                (output / "manifest.json").read_text(encoding="utf-8")
+            )
+            specifications = manifest["assets"][-1]
+            self.assertEqual(specifications["type"], "specifications")
+            self.assertEqual(specifications["status"], "pending")
+            self.assertEqual(
+                specifications["availability"],
+                "awaiting-user-input",
+            )
+            self.assertIn("等待用户提供规格参数", specifications["notes"])
 
 
 class ValidateDeliveryTests(unittest.TestCase):

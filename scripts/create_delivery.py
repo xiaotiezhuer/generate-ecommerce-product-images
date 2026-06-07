@@ -14,6 +14,7 @@ STANDARD_ASSETS = [
     ("04-meaning-copy", "meaning-copy"),
     ("05-usage", "usage"),
     ("06-selling-points", "selling-points"),
+    ("07-specifications", "specifications"),
 ]
 
 RATIOS = {
@@ -43,6 +44,14 @@ def parse_args():
         choices=RATIOS,
         help="Requested aspect ratio. Repeat for multiple ratios; defaults to square.",
     )
+    parser.add_argument(
+        "--specifications-awaiting-input",
+        action="store_true",
+        help=(
+            "Mark specification images as waiting for user-supplied parameters "
+            "instead of requiring generated files."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -51,7 +60,7 @@ def unique_ratios(raw_ratios):
     return list(dict.fromkeys(ratios))
 
 
-def build_manifest(product_name, ratios):
+def build_manifest(product_name, ratios, specifications_awaiting_input=False):
     requested_ratios = [
         {"name": name, "width": RATIOS[name][0], "height": RATIOS[name][1]}
         for name in ratios
@@ -60,34 +69,45 @@ def build_manifest(product_name, ratios):
     for ratio in ratios:
         ratio_width, ratio_height = RATIOS[ratio]
         for asset_id, asset_type in STANDARD_ASSETS:
-            assets.append(
-                {
-                    "id": asset_id,
-                    "type": asset_type,
-                    "ratio": ratio,
-                    "ratio_width": ratio_width,
-                    "ratio_height": ratio_height,
-                    "filename": f"{asset_id}-{ratio}.png",
-                    "status": "pending",
-                    "fidelity": "A",
-                    "notes": [],
-                }
-            )
+            asset = {
+                "id": asset_id,
+                "type": asset_type,
+                "ratio": ratio,
+                "ratio_width": ratio_width,
+                "ratio_height": ratio_height,
+                "filename": f"{asset_id}-{ratio}.png",
+                "status": "pending",
+                "fidelity": "A",
+                "notes": [],
+            }
+            if asset_type == "specifications" and specifications_awaiting_input:
+                asset["availability"] = "awaiting-user-input"
+                asset["notes"].append("等待用户提供规格参数")
+            assets.append(asset)
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "product_name": product_name,
         "requested_ratios": requested_ratios,
         "assets": assets,
     }
 
 
-def create_delivery(output_dir, product_name, ratios):
+def create_delivery(
+    output_dir,
+    product_name,
+    ratios,
+    specifications_awaiting_input=False,
+):
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(f"Refusing to overwrite non-empty directory: {output_dir}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    manifest = build_manifest(product_name, ratios)
+    manifest = build_manifest(
+        product_name,
+        ratios,
+        specifications_awaiting_input=specifications_awaiting_input,
+    )
 
     for filename, content in REPORT_TEMPLATES.items():
         (output_dir / filename).write_text(content, encoding="utf-8")
@@ -103,7 +123,12 @@ def main():
     args = parse_args()
     ratios = unique_ratios(args.ratio)
     try:
-        manifest = create_delivery(args.output_dir, args.product_name, ratios)
+        manifest = create_delivery(
+            args.output_dir,
+            args.product_name,
+            ratios,
+            specifications_awaiting_input=args.specifications_awaiting_input,
+        )
     except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
