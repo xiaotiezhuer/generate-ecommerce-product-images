@@ -1,8 +1,8 @@
-# 六类电商图片提示词
+# 七类电商图片提示词
 
 ## 通用规则
 
-- 默认比例为 `1:1`，默认只生成 6 张方图。
+- 默认比例为 `1:1`，默认生成 7 张方图。
 - 只有用户明确要求平台或比例时，才增加 `3:4`、`4:5`、`16:9` 等版本。
 - 每张图使用一次独立 ImageGen 调用。
 - 每个提示词都列出输入图角色、产品指纹、不可变项和禁止项。
@@ -146,6 +146,45 @@ Avoid: unverifiable material purity, origin, handmade, heritage, safety, medical
 ```
 
 没有可靠卖点时，使用可见特征描述，例如“圆润壶身”“锤目肌理”“提梁设计”，不要补造认证或功效。
+
+## 07 规格尺寸图
+
+销售任务：准确呈现用户确认的商品规格和尺寸关系。
+
+数据规则：
+
+- 至少有一项用户确认的尺寸字段才生成。
+- 接受长、宽、高、直径、口径、底径、厚度等灵活字段。
+- 所有字段、数值、单位及“约”等限定词逐字照录。
+- 产品图只用于判断标线指向，不用于估算或补全规格。
+- 品牌、材质、容量、重量、工艺、型号等参数仅在用户确认后使用。
+
+```text
+Use case: product-mockup
+Asset type: ecommerce specifications and dimensions graphic, 1:1 square
+Primary request: create a classic Chinese ecommerce specification sheet
+Input images:
+- main-identity: exact product identity and structure
+- alternate-angle or detail-reference: optional structure clarification
+- specification-reference: optional confirmed parameter layout or source
+Layout:
+- top: clean two-column or adaptive parameter table
+- center: complete exact product with generous white space
+- around product: thin dimension lines connected to the correct structures
+- bottom: exact measurement disclaimer
+Text (verbatim):
+- Parameters: <逐项列出用户确认的字段和值>
+- Dimensions: <逐项列出用户确认的尺寸字段和值>
+- Disclaimer: "尺寸为手工测量，存在合理误差，请以实物为准"
+Fidelity: A
+Constraints: preserve the exact product; render every character, number,
+decimal point, unit and qualifier exactly once; connect each dimension line
+to the correct product edge or feature
+Avoid: estimated values, rewritten units, added parameters, repeated or
+missing fields, incorrect dimension targets, decorative clutter, watermark
+```
+
+逐项检查字段、数字、单位和尺寸线。第一次失败时只修复错误字段或错误标线；第二次仍失败则标记该图失败，不交付错误规格图。
 
 ## 额外比例
 
