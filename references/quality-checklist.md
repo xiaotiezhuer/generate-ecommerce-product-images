@@ -83,9 +83,8 @@ texture, camera, lighting, background and composition unchanged.
 - `failed`：达到重试上限仍不可用。
 - `fidelity: A`：严格商品保真。
 - `fidelity: B`：已按规则轻度美化，必须附变化说明。
-- `availability: awaiting-user-input`：仅限规格尺寸图在主动询问一次后仍缺参数。
 
-完成图片后更新对应 manifest 记录；失败项写入 `notes`。最终交付中只有带 `availability: awaiting-user-input` 且备注为 `等待用户提供规格参数` 的规格尺寸图可以保持 `pending`。
+完成图片后更新对应 manifest 记录；失败项写入 `notes`。最终验证要求全部 7 张资产为 `complete`，不允许任何 `pending` 或条件性缺图状态。
 
 ## Quality Report 模板
 

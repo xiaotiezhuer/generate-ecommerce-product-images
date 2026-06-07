@@ -1,5 +1,7 @@
 # Specifications Image Implementation Plan
 
+> Superseded by `2026-06-07-required-specifications-input.md`. The current workflow requires specification input in the initial request and a complete seven-image delivery.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a seventh specifications image to the default ecommerce set, with strict user-supplied data rules and a validated waiting-for-input fallback.

@@ -7,7 +7,7 @@ description: Use when a user provides one or more product photos and wants ecomm
 
 ## Overview
 
-Turn one or more photos of the same real product into a researched, product-faithful ecommerce image set. Default to seven `1:1` images and complete the workflow automatically unless the product identity is genuinely ambiguous or specification data requires one user confirmation.
+Turn one or more photos of the same real product into a researched, product-faithful ecommerce image set. Default to seven `1:1` images and complete the workflow automatically unless the product identity is genuinely ambiguous.
 
 **REQUIRED SUB-SKILL:** Use `imagegen` for every generated or edited raster image. Use the built-in `image_gen` path by default and follow its save-path, reference-image, inspection, and iteration rules.
 
@@ -29,10 +29,10 @@ Only add `3:4`, `4:5`, `16:9`, or other ratios when explicitly requested. Genera
 
 Proceed without asking when optional brand, audience, price, material, or copy information is missing. Infer a conservative visual direction and avoid unsupported factual claims.
 
-Specifications are the one conditional exception. If the user has not supplied at least one confirmed dimension field, ask once:
+Treat specification text as part of the initial request. The caller should provide at least one confirmed dimension field alongside the product images, for example:
 
 ```text
-请提供规格尺寸，例如：
+规格尺寸输入示例：
 品牌：归银堂
 材质：足银999
 容量：80毫升
@@ -42,7 +42,7 @@ Specifications are the one conditional exception. If the user has not supplied a
 工艺：一张打
 ```
 
-Accept flexible `字段：内容` lines. Common dimension fields include length, width, height, diameter, opening diameter, base diameter, and thickness. Do not estimate any value from the photos. If the user does not provide the data after this one question, continue with the first six images and mark image 07 as awaiting user input.
+Accept flexible `字段：内容` lines. Common dimension fields include length, width, height, diameter, opening diameter, base diameter, and thickness. Do not ask for missing dimensions during the workflow and never estimate them from photos. Without at least one supplied dimension field, image 07 cannot be truthfully completed and the seven-image delivery must not pass validation.
 
 Stop and ask only when:
 
@@ -128,12 +128,6 @@ python3 <skill-dir>/scripts/create_delivery.py \
 
 Add repeated `--ratio` arguments only for explicitly requested extra ratios.
 
-If the user did not supply a confirmed dimension after the one question, add:
-
-```bash
---specifications-awaiting-input
-```
-
 ### 6. Compose Prompts and Generate
 
 Read `references/image-set-prompts.md`. Write the final prompt for every requested asset into `prompts.md`.
@@ -149,7 +143,7 @@ For each asset:
 
 Use the original images for identity and the visual brief for styling. Keep props secondary and do not imply that unprovided props are included with the product.
 
-Skip the ImageGen call for image 07 only when its manifest record is marked `availability: "awaiting-user-input"`. Otherwise, image 07 requires at least one confirmed dimension field and one dedicated ImageGen call using the classic specification layout in `references/image-set-prompts.md`.
+Image 07 always requires at least one confirmed dimension field and one dedicated ImageGen call using the classic specification layout in `references/image-set-prompts.md`.
 
 ### 7. Inspect, Retry, and Apply Fallbacks
 
@@ -183,9 +177,7 @@ Complete:
 - `quality-report.md`
 - `manifest.json`
 
-For every image, set manifest `status` to `complete` or `failed`, preserve `fidelity` as `A` or `B`, and add concise notes for retries, text fallback, or unresolved issues.
-
-The only permitted final `pending` asset is image 07 with `availability: "awaiting-user-input"` and the note `等待用户提供规格参数`. This state is allowed only after the one specification question went unanswered.
+For every image, set manifest `status` to `complete` or `failed`, preserve `fidelity` as `A` or `B`, and add concise notes for retries, text fallback, or unresolved issues. Validation succeeds only when all seven requested assets are `complete` and present.
 
 Run:
 
@@ -204,6 +196,5 @@ Report:
 - The prompts file path.
 - Any Fidelity B images and exact changes.
 - Failed or no-text fallback assets.
-- Any specification image waiting for user input.
 - Validation result.
 - Reminder to manually confirm product structure, color, copy, logos, dimensions, units, scale, and all factual claims before listing.
