@@ -10,7 +10,6 @@ from pathlib import Path
 
 REPORTS = ("research.md", "visual-brief.md", "prompts.md", "quality-report.md")
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
-AWAITING_SPECIFICATIONS_NOTE = "等待用户提供规格参数"
 JPEG_SOF_MARKERS = {
     0xC0,
     0xC1,
@@ -140,17 +139,6 @@ def validate_reports(delivery_dir, errors):
             errors.append(f"Unreadable report {filename}: {exc}")
 
 
-def is_awaiting_specifications(asset):
-    notes = asset.get("notes")
-    return (
-        asset.get("type") == "specifications"
-        and asset.get("status") == "pending"
-        and asset.get("availability") == "awaiting-user-input"
-        and isinstance(notes, list)
-        and AWAITING_SPECIFICATIONS_NOTE in notes
-    )
-
-
 def validate_asset(delivery_dir, asset, errors):
     filename = asset.get("filename")
     if not filename:
@@ -158,15 +146,6 @@ def validate_asset(delivery_dir, asset, errors):
         return "invalid"
 
     image_path = delivery_dir / filename
-    if asset.get("availability") == "awaiting-user-input":
-        if not is_awaiting_specifications(asset):
-            errors.append(f"Invalid awaiting metadata: {filename}")
-            return "invalid"
-        if image_path.exists():
-            errors.append(f"Unexpected image for awaiting asset: {filename}")
-            return "invalid"
-        return "awaiting"
-
     if image_path.suffix.lower() not in ALLOWED_EXTENSIONS:
         errors.append(f"Unsupported image format: {filename}")
         return "invalid"
@@ -213,55 +192,36 @@ def validate_asset(delivery_dir, asset, errors):
 def validate_delivery(delivery_dir):
     errors = []
     if not delivery_dir.is_dir():
-        return [f"Delivery directory not found: {delivery_dir}"], 0, 0, 0
+        return [f"Delivery directory not found: {delivery_dir}"], 0
 
     manifest = load_manifest(delivery_dir, errors)
     validate_reports(delivery_dir, errors)
     if manifest is None:
-        return errors, 0, 0, 0
+        return errors, 0
 
     assets = manifest.get("assets")
     if not isinstance(assets, list) or not assets:
         errors.append("Manifest assets must be a non-empty list")
-        return errors, 0, 0, 0
+        return errors, 0
 
-    completed_count = 0
-    awaiting_count = 0
     for asset in assets:
         if not isinstance(asset, dict):
             errors.append("Manifest asset must be an object")
             continue
-        state = validate_asset(delivery_dir, asset, errors)
-        if state == "complete":
-            completed_count += 1
-        elif state == "awaiting":
-            awaiting_count += 1
-    return errors, len(assets), completed_count, awaiting_count
+        validate_asset(delivery_dir, asset, errors)
+    return errors, len(assets)
 
 
 def main():
     args = parse_args()
-    errors, asset_count, completed_count, awaiting_count = validate_delivery(
-        args.delivery_dir
-    )
+    errors, asset_count = validate_delivery(args.delivery_dir)
     if errors:
         print(f"Validation failed with {len(errors)} error(s):")
         for error in errors:
             print(f"- {error}")
         return 1
 
-    if awaiting_count:
-        print(
-            "Validation passed: "
-            f"{completed_count} completed image(s), "
-            f"{awaiting_count} awaiting user input, "
-            f"and {len(REPORTS)} report(s)."
-        )
-    else:
-        print(
-            f"Validation passed: {asset_count} image(s) "
-            f"and {len(REPORTS)} report(s)."
-        )
+    print(f"Validation passed: {asset_count} image(s) and {len(REPORTS)} report(s).")
     return 0
 
 

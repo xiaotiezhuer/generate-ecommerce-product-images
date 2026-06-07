@@ -45,12 +45,10 @@ def run_script(script, *args):
     )
 
 
-def create_delivery(root, *ratios, specifications_awaiting_input=False):
+def create_delivery(root, *ratios):
     args = [root, "--product-name", "测试产品"]
     for ratio in ratios:
         args.extend(["--ratio", ratio])
-    if specifications_awaiting_input:
-        args.append("--specifications-awaiting-input")
     return run_script(CREATE_SCRIPT, *args)
 
 
@@ -63,10 +61,7 @@ def complete_delivery(root, dimensions_by_ratio=None, skip_types=()):
         (root / report).write_text("# 已完成\n\n有效内容。\n", encoding="utf-8")
 
     for asset in manifest["assets"]:
-        if (
-            asset.get("availability") == "awaiting-user-input"
-            or asset["type"] in skip_types
-        ):
+        if asset["type"] in skip_types:
             continue
         dimensions = dimensions_by_ratio[asset["ratio"]]
         write_png(root / asset["filename"], *dimensions)
@@ -134,27 +129,20 @@ class CreateDeliveryTests(unittest.TestCase):
             self.assertIn("07-specifications-square.png", filenames)
             self.assertIn("07-specifications-3x4.png", filenames)
 
-    def test_marks_specifications_as_awaiting_user_input(self):
+    def test_rejects_removed_specifications_awaiting_input_flag(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "delivery"
 
-            result = create_delivery(
+            result = run_script(
+                CREATE_SCRIPT,
                 output,
-                specifications_awaiting_input=True,
+                "--product-name",
+                "测试产品",
+                "--specifications-awaiting-input",
             )
 
-            self.assertEqual(result.returncode, 0, result.stderr)
-            manifest = json.loads(
-                (output / "manifest.json").read_text(encoding="utf-8")
-            )
-            specifications = manifest["assets"][-1]
-            self.assertEqual(specifications["type"], "specifications")
-            self.assertEqual(specifications["status"], "pending")
-            self.assertEqual(
-                specifications["availability"],
-                "awaiting-user-input",
-            )
-            self.assertIn("等待用户提供规格参数", specifications["notes"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unrecognized arguments", result.stderr.lower())
 
 
 class ValidateDeliveryTests(unittest.TestCase):
@@ -223,22 +211,6 @@ class ValidateDeliveryTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("14 image", result.stdout.lower())
 
-    def test_accepts_specifications_waiting_for_user_input(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            output = Path(tmp) / "delivery"
-            created = create_delivery(
-                output,
-                specifications_awaiting_input=True,
-            )
-            self.assertEqual(created.returncode, 0, created.stderr)
-            complete_delivery(output)
-
-            result = run_script(VALIDATE_SCRIPT, output)
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("6 completed image", result.stdout.lower())
-            self.assertIn("1 awaiting", result.stdout.lower())
-
     def test_rejects_plain_pending_specifications(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "delivery"
@@ -250,40 +222,14 @@ class ValidateDeliveryTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("incomplete asset status", result.stdout.lower())
 
-    def test_rejects_waiting_specifications_without_required_note(self):
+    def test_rejects_legacy_awaiting_specifications_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "delivery"
-            self.assertEqual(
-                create_delivery(
-                    output,
-                    specifications_awaiting_input=True,
-                ).returncode,
-                0,
-            )
-            manifest = complete_delivery(output)
-            manifest["assets"][-1]["notes"] = []
-            (output / "manifest.json").write_text(
-                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
-            )
-
-            result = run_script(VALIDATE_SCRIPT, output)
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("invalid awaiting metadata", result.stdout.lower())
-
-    def test_rejects_waiting_specifications_without_availability(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            output = Path(tmp) / "delivery"
-            self.assertEqual(
-                create_delivery(
-                    output,
-                    specifications_awaiting_input=True,
-                ).returncode,
-                0,
-            )
-            manifest = complete_delivery(output)
-            del manifest["assets"][-1]["availability"]
+            self.assertEqual(create_delivery(output).returncode, 0)
+            manifest = complete_delivery(output, skip_types={"specifications"})
+            specifications = manifest["assets"][-1]
+            specifications["availability"] = "awaiting-user-input"
+            specifications["notes"] = ["等待用户提供规格参数"]
             (output / "manifest.json").write_text(
                 json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
@@ -293,25 +239,6 @@ class ValidateDeliveryTests(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("incomplete asset status", result.stdout.lower())
-
-    def test_rejects_image_for_waiting_specifications(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            output = Path(tmp) / "delivery"
-            self.assertEqual(
-                create_delivery(
-                    output,
-                    specifications_awaiting_input=True,
-                ).returncode,
-                0,
-            )
-            manifest = complete_delivery(output)
-            specifications = manifest["assets"][-1]
-            write_png(output / specifications["filename"], 120, 120)
-
-            result = run_script(VALIDATE_SCRIPT, output)
-
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("unexpected image", result.stdout.lower())
 
 
 if __name__ == "__main__":

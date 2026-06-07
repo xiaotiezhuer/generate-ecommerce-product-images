@@ -44,14 +44,6 @@ def parse_args():
         choices=RATIOS,
         help="Requested aspect ratio. Repeat for multiple ratios; defaults to square.",
     )
-    parser.add_argument(
-        "--specifications-awaiting-input",
-        action="store_true",
-        help=(
-            "Mark specification images as waiting for user-supplied parameters "
-            "instead of requiring generated files."
-        ),
-    )
     return parser.parse_args()
 
 
@@ -60,7 +52,7 @@ def unique_ratios(raw_ratios):
     return list(dict.fromkeys(ratios))
 
 
-def build_manifest(product_name, ratios, specifications_awaiting_input=False):
+def build_manifest(product_name, ratios):
     requested_ratios = [
         {"name": name, "width": RATIOS[name][0], "height": RATIOS[name][1]}
         for name in ratios
@@ -80,9 +72,6 @@ def build_manifest(product_name, ratios, specifications_awaiting_input=False):
                 "fidelity": "A",
                 "notes": [],
             }
-            if asset_type == "specifications" and specifications_awaiting_input:
-                asset["availability"] = "awaiting-user-input"
-                asset["notes"].append("等待用户提供规格参数")
             assets.append(asset)
 
     return {
@@ -93,21 +82,12 @@ def build_manifest(product_name, ratios, specifications_awaiting_input=False):
     }
 
 
-def create_delivery(
-    output_dir,
-    product_name,
-    ratios,
-    specifications_awaiting_input=False,
-):
+def create_delivery(output_dir, product_name, ratios):
     if output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(f"Refusing to overwrite non-empty directory: {output_dir}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    manifest = build_manifest(
-        product_name,
-        ratios,
-        specifications_awaiting_input=specifications_awaiting_input,
-    )
+    manifest = build_manifest(product_name, ratios)
 
     for filename, content in REPORT_TEMPLATES.items():
         (output_dir / filename).write_text(content, encoding="utf-8")
@@ -123,12 +103,7 @@ def main():
     args = parse_args()
     ratios = unique_ratios(args.ratio)
     try:
-        manifest = create_delivery(
-            args.output_dir,
-            args.product_name,
-            ratios,
-            specifications_awaiting_input=args.specifications_awaiting_input,
-        )
+        manifest = create_delivery(args.output_dir, args.product_name, ratios)
     except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
